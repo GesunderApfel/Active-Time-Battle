@@ -9,4 +9,4 @@ But it should give you a good hint how i write and structure my code as well as 
 Actual status:
 Battle is uni-directional -> the enemies don't act, but they can die.
 Therefore no logic is implemented to handle player death. 
-You should not attack your own party members because neither UI nor the "battle logic" will care.
+You should not attack your own party members because neither UI nor the "battle logic" will care... which means you break the battle after killing one of your members ^^"
