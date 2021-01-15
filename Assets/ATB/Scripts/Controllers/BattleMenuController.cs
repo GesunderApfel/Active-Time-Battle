@@ -16,8 +16,12 @@ using UnityEngine;
 /// 
 /// For now, no enemy logic is implemented and the battle consists just of menu navigation and the player team actions.
 /// 
+/// The most interesting part of this prototype is the BattleActionProcessor. 
+/// You can start there or here for a good start into reviewing the code.
+/// 
 /// Future milestones: 
 /// - Camera movement and "cinematic effects" (like the camera concentrating on the action should add some juice to the "game")
+///     -> Using Cinemachine
 /// - Enemy actions
 /// </summary>
 public class BattleMenuController : MonoBehaviour
@@ -49,8 +53,6 @@ public class BattleMenuController : MonoBehaviour
 
         _battleMenuView.InitPartyMemberView(_battleActionProcessor);
         _battleActionProcessor.StartCoroutines(this);
-
-
 
         SetRootMenuEvents();
         SetSubMenuEvents();

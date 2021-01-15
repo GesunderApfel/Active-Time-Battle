@@ -9,6 +9,7 @@ using UnityEngine.UI;
 [RequireComponent(typeof(GridLayoutGroup))]
 public class GridMenuNavigation : MonoBehaviour
 {
+    [SerializeField] private Canvas canvas;
     private RectTransform rectTransform;
     public GridLayoutGroup Grid { get; private set; }
     public int index;
@@ -64,9 +65,10 @@ public class GridMenuNavigation : MonoBehaviour
         if (oldIndex != index)
             BattleSoundManager.Instance.PlayNavigate();
 
-        RectTransform selection = transform.GetChild(index).GetComponent<RectTransform>();
-        // 0.3f is magic number
-        return selection.position - Vector3.right * Grid.cellSize.x * 0.3f;
+        // GetChild(0) is the CursorPos-Transform of GridText-Prefab
+        var selection = transform.GetChild(index).GetComponent<RectTransform>();
+        return selection.GetChild(0).transform.position;
+
     }
 
 

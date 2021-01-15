@@ -37,8 +37,7 @@ public class BattleMenuModel
     /// </summary>
     public Vector3 Navigate()
     {
-        // 4f is magic number
-        Vector3 cursorPos = rootMenuNavigation.Navigate() + Vector3.right * 4f;
+        Vector3 cursorPos = rootMenuNavigation.Navigate();
 
         if (Input.GetKeyDown(KeyCode.Space))
         {

@@ -95,6 +95,9 @@ public class BattleParties
         return fighterPrefab;
     }
 
+    /// <summary>
+    /// Removes Fighter from dictionaries and destroys his GameObject
+    /// </summary>
     public void KillFighter(Fighter fighter)
     {
         GameObject.Destroy(fighterTransformDict[fighter].gameObject);

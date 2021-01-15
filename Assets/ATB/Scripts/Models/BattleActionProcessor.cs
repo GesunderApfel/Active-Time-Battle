@@ -6,9 +6,11 @@ using System.Linq;
 using UnityEngine;
 
 /// <summary>
-/// The heart of the prototype.
-/// 
-/// 
+/// The heart of the prototype. Handles the "business logic" of the battle.
+/// It contains all Actions and Fighters (for now, enemies are not implemented)
+/// and determines the sequence them as well as the animations (see courotines).
+/// The most important methods are the coroutines "BattleActionsQueueHandler" and "FightTurnMeter".
+/// For comprehension you should start looking into this methods first.
 /// </summary>
 public class BattleActionProcessor
 {
@@ -20,7 +22,7 @@ public class BattleActionProcessor
     /// </summary>
     private Queue<IEnumerator> _battleActions;
     /// <summary>
-    /// Queue for all fightes which have a full turn meter
+    /// Queue for all fighters who have a full turn meter
     /// </summary>
     private Queue<Fighter> _activeFighters;
     public Fighter ActiveFighter
@@ -50,6 +52,9 @@ public class BattleActionProcessor
     /// </summary>
     private MonoBehaviour _coroutineStarter;
     private bool _isBattleFinished;
+    /// <summary>
+    /// a boolean to determin if the current animation (and therefore it's action) is finished.
+    /// </summary>
     private bool _isAnimationOnGoing;
 
     #region Controller Event Members
@@ -97,6 +102,7 @@ public class BattleActionProcessor
     {
         _battleRuleBook = new BattleRuleBook();
         _activeFighters = new Queue<Fighter>();
+        _battleActions = new Queue<IEnumerator>();
 
         _isBattleFinished = false;
         _isAnimationOnGoing = false;
@@ -130,7 +136,7 @@ public class BattleActionProcessor
 
     /// <summary>
     /// courotineStarter needs to be a MonoBehaviour rooted in the scene. In this case it's simply the BattleMenuController.
-    /// This is needed, because BattleMenuController isn't a MonoBehaviour.
+    /// This is needed, because BattleActionProcessor isn't a MonoBehaviour.
     /// </summary>
     public void StartCoroutines(MonoBehaviour coroutineStarter)
     {
@@ -143,10 +149,8 @@ public class BattleActionProcessor
     /// Regulates invoking of registered actions (animation coroutines and calculation logic)
     /// by invoking them one after another (after one animation cycle is done)
     /// </summary>
-    /// <returns></returns>
     public IEnumerator BattleActionsQueueHandler()
     {
-        _battleActions = new Queue<IEnumerator>();
         _isAnimationOnGoing = false;
         while (!_isBattleFinished)
         {
@@ -202,22 +206,26 @@ public class BattleActionProcessor
 
             Transform targetTransform = battleParties.fighterTransformDict[target];
 
-            Vector3 standingPos = attackerTransform.position;
+            Vector3 originalPosition = attackerTransform.position;
             Quaternion originalRotation = attackerTransform.rotation;
-            Sequence attackSequence = DOTween.Sequence();
 
+            // a sequence of simple animations for the attack usin DOTween
+            // 1. attacker looks at target
+            // 2. attacker moves to target
+            // 3. target reacts to the damage (shakes)
+            // 4. attacker "attacks" (well, it just shakes, but it's good enough for now)
+            // 5. attacker jumps back into position
+            Sequence attackSequence = DOTween.Sequence();
             attackSequence.Append(attackerTransform.DOLookAt(targetTransform.position, 0.1f));
             attackSequence.Append(attackerTransform.DOMove(targetTransform.position - Vector3.right, 1));
             attackSequence.Append(targetTransform.DOShakePosition(2));
             attackSequence.Join(attackerTransform.DOShakePosition(2, fadeOut: false));
-            attackSequence.Append(attackerTransform.DOJump(standingPos, 3, 1, 1));
-
-
+            attackSequence.Append(attackerTransform.DOJump(originalPosition, 3, 1, 1));
             yield return attackSequence.WaitForElapsedLoops(1);
-            attackerTransform.rotation = originalRotation;
-            attacker.isDoingAction = false;
-            attacker.attackTurnMeter = 0;
 
+            // finish action
+            FinishAction(attacker, attackerTransform, originalPosition, originalRotation);
+            // afflict damage and check if target is dying
             DealDamage(target, _battleRuleBook.DoDamage(attacker, target));
             TargetDying(target);
 
@@ -237,10 +245,10 @@ public class BattleActionProcessor
 
             Transform targetTransform = battleParties.fighterTransformDict[target];
 
-            Vector3 standingPos = attackerTransform.position;
+            Vector3 originalPosition = attackerTransform.position;
             Quaternion originalRotation = attackerTransform.rotation;
-            Sequence attackSequence = DOTween.Sequence();
 
+            Sequence attackSequence = DOTween.Sequence();
             attackSequence.Append(attackerTransform.DOLookAt(targetTransform.position, 0.1f));
             attackSequence.Append(attackerTransform.DOShakePosition(2));
             yield return attackSequence.WaitForElapsedLoops(1);
@@ -248,10 +256,10 @@ public class BattleActionProcessor
             /// just a note for myself ^^
             /// TO DO
             /// loop through all hit times
-            /// When TO DO: after "real" animations got implemented
+            /// When: after "real" animations got implemented
 
-            GameObject magicParent = GameObject.Instantiate(magic.effect, targetTransform.position, Quaternion.identity);
-            MagicTimer timer = magicParent.GetComponent<MagicTimer>();
+            GameObject magicGO = GameObject.Instantiate(magic.effect, targetTransform.position, Quaternion.identity);
+            MagicTimer timer = magicGO.GetComponent<MagicTimer>();
             float waitTime = timer.durationUntilHit[0];
             yield return new WaitForSeconds(waitTime);
 
@@ -259,12 +267,9 @@ public class BattleActionProcessor
             attackSequence.Append(targetTransform.DOShakePosition(1));
             yield return new WaitForSeconds(timer.endTime - waitTime);
 
-            GameObject.Destroy(magicParent);
-            attackerTransform.rotation = originalRotation;
-            attacker.isDoingAction = false;
-            attacker.attackTurnMeter = 0;
+            GameObject.Destroy(magicGO);
 
-
+            FinishAction(attacker, attackerTransform, originalPosition, originalRotation);
             DealDamage(target, _battleRuleBook.DoSubMenuAction(attacker, target, magic));
             TargetDying(target);
 
@@ -284,10 +289,10 @@ public class BattleActionProcessor
 
             Transform targetTransform = battleParties.fighterTransformDict[target];
 
-            Vector3 standingPos = attackerTransform.position;
+            Vector3 originalPosition = attackerTransform.position;
             Quaternion originalRotation = attackerTransform.rotation;
-            Sequence attackSequence = DOTween.Sequence();
 
+            Sequence attackSequence = DOTween.Sequence();
             attackSequence.Append(attackerTransform.DOLookAt(targetTransform.position, 0.1f));
             attackSequence.Append(attackerTransform.DOShakePosition(2));
             yield return attackSequence.WaitForElapsedLoops(1);
@@ -295,18 +300,14 @@ public class BattleActionProcessor
             /// just a note for myself ^^
             /// TO DO
             /// loop through all hit times
-            /// When TO DO: after "real" animations got implemented
+            /// When: after "real" animations got implemented
 
             Vector3 spawnPosition = targetTransform.position - Vector3.up * targetTransform.localScale.y * 0.5f;
             GameObject bestiaCallGO = GameObject.Instantiate(bestia.bestiaCall, spawnPosition, Quaternion.identity);
 
             yield return new WaitForSeconds(bestia.duration);
 
-            attackerTransform.rotation = originalRotation;
-            attacker.isDoingAction = false;
-            attacker.attackTurnMeter = 0;
-
-
+            FinishAction(attacker, attackerTransform, originalPosition, originalRotation);
             DealDamage(target, _battleRuleBook.DoSubMenuAction(attacker, target, bestia));
             TargetDying(target);
 
@@ -316,12 +317,23 @@ public class BattleActionProcessor
         CheckBattleState();
     }
 
+    private void FinishAction(Fighter attacker, Transform attackerTransform, Vector3 originPosition, Quaternion originRotation)
+    {
+        attackerTransform.position = originPosition;
+        attackerTransform.rotation = originRotation;
+        attacker.isDoingAction = false;
+        attacker.attackTurnMeter = 0;
+    }
+
     /// <summary>
     /// Checks if battle is over and which team won.
-    /// There is no draw and loss of the player has priority
+    /// There is no draw -> loss of the player has priority.
     /// </summary>
     private void CheckBattleState()
     {
+        if (_isBattleFinished)
+            return;
+
         var playerFighterAlive = battleParties.PlayerParty.Fighters.FirstOrDefault(x => x.health > 0);
         if (playerFighterAlive == null)
             Lose();
@@ -333,7 +345,7 @@ public class BattleActionProcessor
 
     /// <summary>
     /// checks if target is still alive, if not -> returns next target
-    /// if all "targets" are dead -> lose or win
+    /// | else -> returns null
     /// </summary>
     private Fighter ValidateCurrentTarget(Fighter target)
     {
