@@ -10,3 +10,5 @@ Actual status:
 Battle is uni-directional -> the enemies don't act, but they can die.
 Therefore no logic is implemented to handle player death. 
 You should not attack your own party members because neither UI nor the "battle logic" will care... which means you break the battle after killing one of your members ^^"
+
+Used Unity Version: 2019.4.17f1
